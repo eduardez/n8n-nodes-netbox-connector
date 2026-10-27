@@ -15,13 +15,14 @@ Create **NetBox API** credentials:
 - **API Token**: full `nbt_<key>.<token>` v2 token or plaintext v1 token
 - **Allow Unauthorized Certificates**: disables TLS certificate validation. Use only for trusted self-signed NetBox deployments
 
-Credential testing calls `/api/authentication-check/`. Requests use the configured origin and deployment subpath; caller-supplied `Authorization`, `Host`, and `Cookie` headers cannot override transport security.
+Credential testing first calls `/api/authentication-check/`. If that endpoint is absent (HTTP 404), it probes the protected, read-only `/api/users/users/?limit=1`; an explicit permission-denied response is accepted only when it confirms the token authenticated but lacks user-list permission. It never falls back to unauthenticated `/api/status/`. Requests use the configured origin and deployment subpath; caller-supplied `Authorization`, `Host`, and `Cookie` headers cannot override transport security.
 
 ## Resources
 
 ### Native REST
 
 The **Resource** and **Operation** selectors cover every method/path operation in the pinned NetBox 4.7.3 OpenAPI schema: 1,256 operations, 322 paths, and 146 resource groups. The committed schema is the public NetBox demo schema pinned to the v4.7.3 source commit; it is not a capture from a local NetBox instance.
+The catalog targets NetBox 4.7.3. With older releases such as 4.3.0, only endpoints present on the target are usable; other version-specific operation behavior is not verified.
 
 - Path parameters appear for the selected operation
 - **Query Parameters** and **Headers** accept JSON objects. Query arrays and OpenAPI parameter styles are serialized from the schema
@@ -85,6 +86,7 @@ The integration harness executes the compiled node with an HTTP adapter; it does
 
 ## Changelog
 
+- **0.1.1** — Add a protected credential-test fallback for NetBox releases without `/api/authentication-check/`.
 - **0.1.0** — Initial NetBox 4.7.3 catalog, authenticated transport, Custom REST, read-only GraphQL, and IPAM provisioning helpers
 
 NetBox is a registered trademark of NetBox Labs. The network-symbol artwork is derived from the official NetBox logo at <https://github.com/netbox-community/netbox/blob/v4.7.3/netbox/project-static/img/logo_netbox_bright_teal.svg> and is used here as the symbol portion only. The full source logo is copyrighted by its respective owner.

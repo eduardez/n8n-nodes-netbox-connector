@@ -76,7 +76,20 @@ function nestedResponse(value: unknown): unknown {
 function bodyFrom(value: unknown): unknown {
 	return isRecord(value) ? value.body : undefined;
 }
+function responseDetail(body: unknown): string | undefined {
+	if (typeof body === 'string') {
+		try {
+			body = JSON.parse(body);
+		} catch {
+			return undefined;
+		}
+	}
+	return isRecord(body) && typeof body.detail === 'string' ? body.detail : undefined;
+}
 
+function isPermissionDenied(body: unknown): boolean {
+	return responseDetail(body)?.trim().toLowerCase() === 'you do not have permission to perform this action.';
+}
 function headersFrom(value: unknown): Record<string, unknown> {
 	if (!isRecord(value)) return {};
 	const headers = value.headers;
@@ -489,17 +502,25 @@ export const netBoxApiTest: ICredentialTestFunction = async function (
 	try {
 		const baseUrl = normalizeBaseUrl(data.baseUrl);
 		const authorization = authorizationHeader(data);
-		const response = await this.helpers.request(`${baseUrl}/api/authentication-check/`, {
-			method: 'GET',
+		const requestOptions = {
+			method: 'GET' as const,
 			headers: { Authorization: authorization },
-			json: true,
+			json: false,
 			resolveWithFullResponse: true,
 			simple: false,
 			followRedirect: false,
 			rejectUnauthorized: !data.allowUnauthorizedCerts,
 			timeout: 30000,
-		});
-		const status = statusFrom(response);
+		};
+		let response = await this.helpers.request(`${baseUrl}/api/authentication-check/`, requestOptions);
+		let status = statusFrom(response);
+		if (status === 404) {
+			response = await this.helpers.request(`${baseUrl}/api/users/users/?limit=1`, requestOptions);
+			status = statusFrom(response);
+			if (status === 403 && isPermissionDenied(bodyFrom(response))) {
+				return { status: 'OK', message: 'NetBox authentication succeeded; the token cannot list users.' };
+			}
+		}
 		if (status === 200) return { status: 'OK', message: 'NetBox authentication successful.' };
 		return { status: 'Error', message: `NetBox authentication failed${status === undefined ? '' : ` with HTTP ${status}`}.` };
 	} catch (caught) {

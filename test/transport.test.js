@@ -203,5 +203,48 @@ test('credential test authenticates against the protected check endpoint for v1 
 		assert.equal(call.url, 'https://netbox.example.test/netbox/api/authentication-check/');
 		assert.equal(call.options.headers.Authorization, `${tokenType === 'v2' ? 'Bearer' : 'Token'} ${credentials.apiToken}`);
 		assert.equal(call.options.followRedirect, false);
+		assert.equal(call.options.json, false);
 	}
+});
+test('credential test uses a protected fallback when the authentication-check route is absent', async () => {
+	const calls = [];
+	const result = await netBoxApiTest.call({
+		helpers: {
+			request: async (url, options) => {
+				calls.push({ url, options });
+				return calls.length === 1
+					? response('<!DOCTYPE html><title>404 Not Found</title>', 404)
+					: response(JSON.stringify({ detail: 'You do not have permission to perform this action.' }), 403);
+			},
+		},
+	}, { data: { ...credentials, tokenType: 'v1', apiToken: 'legacy-token' } });
+
+	assert.equal(result.status, 'OK');
+	assert.match(result.message, /cannot list users/);
+	assert.deepEqual(calls.map(call => call.url), [
+		'https://netbox.example.test/netbox/api/authentication-check/',
+		'https://netbox.example.test/netbox/api/users/users/?limit=1',
+	]);
+	assert.equal(calls[0].options.json, false);
+	assert.equal(calls[1].options.method, 'GET');
+	assert.equal(calls[1].options.headers.Authorization, 'Token legacy-token');
+	assert.equal(calls[1].options.followRedirect, false);
+});
+
+test('credential fallback rejects a 403 invalid-token response', async () => {
+	let calls = 0;
+	const result = await netBoxApiTest.call({
+		helpers: {
+			request: async () => {
+				calls += 1;
+				return calls === 1
+					? response('<!DOCTYPE html><title>404 Not Found</title>', 404)
+					: response(JSON.stringify({ detail: 'Invalid token' }), 403);
+			},
+		},
+	}, { data: { ...credentials, tokenType: 'v1', apiToken: 'invalid-token' } });
+
+	assert.equal(result.status, 'Error');
+	assert.match(result.message, /HTTP 403/);
+	assert.equal(calls, 2);
 });

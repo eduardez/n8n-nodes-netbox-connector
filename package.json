@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-netbox-connector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n community node for the NetBox REST and GraphQL APIs",
   "keywords": [
     "n8n-community-node-package",
