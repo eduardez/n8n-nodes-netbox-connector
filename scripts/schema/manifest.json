@@ -1,0 +1,9 @@
+{
+  "version": "4.7.3",
+  "upstreamReleaseCommit": "3cd2c1d6469caed6c50e80eddd4cde863e0e2cf5",
+  "sourceUrl": "https://demo.netbox.dev/api/schema/?format=json",
+  "sha256": "521a01c0aaaed3ff688791cbed14c38b86d185d6e1cfc985ab1e743387e17a4b",
+  "pathCount": 322,
+  "operationCount": 1256,
+  "capture": "Public demo schema seed; disposable local NetBox 4.7.3 schema unavailable because no Docker daemon or reachable context is configured."
+}
