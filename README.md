@@ -68,6 +68,14 @@ npm pack --dry-run
 
 The generator uses `scripts/schema/netbox-4.7.3.openapi.json` by default. `npm run generate -- --input <path-or-url>` accepts a replacement OpenAPI document; remote authenticated inputs use `NETBOX_TOKEN` and optional `NETBOX_TOKEN_TYPE`. Generated runtime catalog files are checked in.
 
+## CI/CD
+
+Pull requests and pushes to `main` run the **CI** workflow on Node.js 20 and 22. It installs the locked dependencies, builds the package, checks generated-operation coverage, runs lint and tests, and verifies `npm pack --dry-run`.
+
+The **Integration** workflow is manually dispatched against a disposable NetBox instance. Configure repository secrets `NETBOX_BASE_URL`, `NETBOX_API_TOKEN`, and `NETBOX_TEST_PREFIX_ID`; select token type `v1` or `v2`. Dispatch requires explicit confirmation that the target is disposable. The create/delete tag scenario stays disabled unless **Allow writes** is selected.
+
+Pushing a tag matching `v<package-version>` (for example, `v0.1.1`) runs the npm **Publish** workflow. It validates the tag against `package.json`, runs tests and lint, then publishes. Configure the `NPM_TOKEN` repository secret with permission to publish `n8n-nodes-netbox-connector`.
+
 ## Live integration tests
 
 `npm run test:integration` runs the compiled node against a disposable NetBox instance. Set `NETBOX_INTEGRATION_DISPOSABLE=1`, `NETBOX_BASE_URL`, `NETBOX_API_TOKEN`, and `NETBOX_TEST_PREFIX_ID`; `NETBOX_TOKEN_TYPE` defaults to `v2`. The suite covers native paginated REST, Custom REST metadata, a read-only GraphQL query, and IPAM read helpers.
