@@ -72,5 +72,10 @@
   },
   "peerDependencies": {
     "n8n-workflow": "*"
+  },
+  "overrides": {
+    "@semantic-release/release-notes-generator": {
+      "conventional-changelog-writer": "^9.0.0"
+    }
   }
 }
