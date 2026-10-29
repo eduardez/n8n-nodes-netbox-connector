@@ -4,13 +4,24 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New stable package version, without a v prefix (for example 0.1.2)
+        required: true
+        type: string
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -22,7 +33,10 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-          cache: npm
+          package-manager-cache: false
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.5.1
 
       - name: Verify release tag
         env:
@@ -40,7 +54,171 @@ jobs:
       - name: Lint package
         run: npm run lint
 
-      - name: Publish package
-        run: npm publish --access public
+      - name: Publish unless the version already exists
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PACKAGE_NAME: n8n-nodes-netbox-connector
+        run: |
+          VERSION="$(node -p 'require("./package.json").version')"
+          if npm view "$PACKAGE_NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$PACKAGE_NAME@$VERSION already published; skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Create GitHub release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        with:
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              core.info(`Release ${tag} already exists; leaving it unchanged.`);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name: tag,
+                generate_release_notes: true,
+              });
+            }
+
+  manual-release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: manual-release-netbox
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Require dispatch from main
+        run: test "$GITHUB_REF" = "refs/heads/main"
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11.5.1
+
+      - name: Prepare requested version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo 'Version must be stable X.Y.Z semver without a v prefix.' >&2
+            exit 1
+          fi
+          TAG="v$VERSION"
+          git fetch --tags origin
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            git checkout --detach "$TAG"
+            CURRENT_VERSION="$(node -p 'require("./package.json").version')"
+            if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+              echo "Tag $TAG contains package version $CURRENT_VERSION, not $VERSION." >&2
+              exit 1
+            fi
+            echo 'existing_tag=true' >> "$GITHUB_OUTPUT"
+          else
+            CURRENT_VERSION="$(node -p 'require("./package.json").version')"
+            node - "$CURRENT_VERSION" "$VERSION" <<'NODE'
+          const parse = (value) => {
+            const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(value);
+            if (!match) throw new Error(`Invalid stable semantic version: ${value}`);
+            return match.slice(1).map(Number);
+          };
+          const [current, requested] = process.argv.slice(2).map(parse);
+          const order = current.map((part, index) => part - requested[index]).find(value => value !== 0) ?? 0;
+          if (order > 0) throw new Error('Requested version must not be lower than package.json.');
+          NODE
+            if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+              npm version "$VERSION" --no-git-tag-version
+            fi
+            echo 'existing_tag=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Test package
+        run: npm test
+
+      - name: Lint package
+        run: npm run lint
+
+      - name: Pack package
+        run: npm pack --dry-run
+
+      - name: Publish unless the version already exists
+        env:
+          PACKAGE_NAME: n8n-nodes-netbox-connector
+          VERSION: ${{ inputs.version }}
+        run: |
+          if npm view "$PACKAGE_NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$PACKAGE_NAME@$VERSION already published; skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Commit version and push tag
+        if: steps.version.outputs.existing_tag != 'true'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --quiet -- package.json package-lock.json; then
+            git add package.json package-lock.json
+            git commit -m "chore(release): $TAG"
+          fi
+          git fetch --tags origin
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
+            if [ "$TAG_COMMIT" != "$(git rev-parse HEAD)" ]; then
+              echo "Tag $TAG already points to another commit." >&2
+              exit 1
+            fi
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+          fi
+          git push origin HEAD:main "refs/tags/$TAG"
+
+      - name: Create GitHub release
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ inputs.version }}
+        with:
+          script: |
+            const tag = `v${process.env.VERSION}`;
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              core.info(`Release ${tag} already exists; leaving it unchanged.`);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name: tag,
+                generate_release_notes: true,
+              });
+            }

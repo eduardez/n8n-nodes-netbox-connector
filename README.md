@@ -74,7 +74,11 @@ Pull requests and pushes to `main` run the **CI** workflow on Node.js 20 and 22.
 
 The **Integration** workflow is manually dispatched against a disposable NetBox instance. Configure repository secrets `NETBOX_BASE_URL`, `NETBOX_API_TOKEN`, and `NETBOX_TEST_PREFIX_ID`; select token type `v1` or `v2`. Dispatch requires explicit confirmation that the target is disposable. The create/delete tag scenario stays disabled unless **Allow writes** is selected.
 
-Pushing a tag matching `v<package-version>` (for example, `v0.1.1`) runs the npm **Publish** workflow. It validates the tag against `package.json`, runs tests and lint, then publishes. Configure the `NPM_TOKEN` repository secret with permission to publish `n8n-nodes-netbox-connector`.
+Pushing a tag matching `v<package-version>` (for example, `v0.1.2`) runs the npm **Publish** workflow. It validates the tag, publishes through npm Trusted Publishing, and creates a GitHub release.
+
+For a manual release, run **Actions → Publish to npm → Run workflow** from `main` and enter a new stable `X.Y.Z` version without a `v` prefix. The workflow updates `package.json` and `package-lock.json`, runs tests and lint, publishes, pushes the version tag, and creates a GitHub release.
+
+Configure npm **Trusted Publisher** for GitHub Actions with user `eduardez`, repository `n8n-nodes-netbox-connector`, and workflow filename `publish.yml`. Leave **Environment name** blank unless a matching GitHub environment is configured, and enable direct `npm publish` in **Allowed actions**. The workflow uses Node 22.14+ and npm 11.5.1+; no `NPM_TOKEN` is needed. A new trusted-publisher configuration must complete its first successful publish within two days.
 
 ## Live integration tests
 
@@ -98,3 +102,8 @@ The integration harness executes the compiled node with an HTTP adapter; it does
 - **0.1.0** — Initial NetBox 4.7.3 catalog, authenticated transport, Custom REST, read-only GraphQL, and IPAM provisioning helpers
 
 NetBox is a registered trademark of NetBox Labs. The network-symbol artwork is derived from the official NetBox logo at <https://github.com/netbox-community/netbox/blob/v4.7.3/netbox/project-static/img/logo_netbox_bright_teal.svg> and is used here as the symbol portion only. The full source logo is copyrighted by its respective owner.
+
+## Repository and contributions
+
+Source: [n8n-nodes-netbox-connector](https://github.com/eduardez/n8n-nodes-netbox-connector). Report bugs or request features in [GitHub Issues](https://github.com/eduardez/n8n-nodes-netbox-connector/issues). Contributions are welcome—feel free to contribute!
+

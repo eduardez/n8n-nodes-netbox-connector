@@ -10,6 +10,14 @@
     "dcim"
   ],
   "license": "MIT",
+  "homepage": "https://github.com/eduardez/n8n-nodes-netbox-connector",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eduardez/n8n-nodes-netbox-connector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eduardez/n8n-nodes-netbox-connector/issues"
+  },
   "author": {
     "name": "eduardez"
   },
