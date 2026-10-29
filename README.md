@@ -1,5 +1,9 @@
 # n8n-nodes-netbox-connector
 
+Repository: [n8n-nodes-netbox-connector](https://github.com/eduardez/n8n-nodes-netbox-connector) · Homepage: [README](https://github.com/eduardez/n8n-nodes-netbox-connector#readme) · npm package: [n8n-nodes-netbox-connector](https://www.npmjs.com/package/n8n-nodes-netbox-connector) · Issues: [GitHub Issues](https://github.com/eduardez/n8n-nodes-netbox-connector/issues)
+
+Contributions are welcome—feel free to contribute!
+
 n8n community node for NetBox REST and read-only GraphQL APIs
 
 ## Install
@@ -70,15 +74,17 @@ The generator uses `scripts/schema/netbox-4.7.3.openapi.json` by default. `npm r
 
 ## CI/CD
 
-Pull requests and pushes to `main` run the **CI** workflow on Node.js 20 and 22. It installs the locked dependencies, builds the package, checks generated-operation coverage, runs lint and tests, and verifies `npm pack --dry-run`.
+Pull requests, pushes to `main` or `develop`, and manual dispatch run **CI** on Node.js 20 and 22. It installs locked dependencies, builds, checks generated-operation coverage, runs lint and tests, and verifies `npm pack --dry-run`.
 
-The **Integration** workflow is manually dispatched against a disposable NetBox instance. Configure repository secrets `NETBOX_BASE_URL`, `NETBOX_API_TOKEN`, and `NETBOX_TEST_PREFIX_ID`; select token type `v1` or `v2`. Dispatch requires explicit confirmation that the target is disposable. The create/delete tag scenario stays disabled unless **Allow writes** is selected.
+CI dispatch also accepts `run_integration` (default false). Set it to true to run `npm run test:integration` against a disposable NetBox instance; configure `NETBOX_BASE_URL`, `NETBOX_API_TOKEN`, and `NETBOX_TEST_PREFIX_ID`. Confirm the target is disposable before dispatch. The create/delete tag scenario remains disabled unless **Allow writes** is selected; choose token type `v1` or `v2`.
 
-Pushing a tag matching `v<package-version>` (for example, `v0.1.2`) runs the npm **Publish** workflow. It validates the tag, publishes through npm Trusted Publishing, and creates a GitHub release.
+Every change merged to `main` triggers `publish.yml`. Conventional Commits select the version: `fix:` is patch, `feat:` is minor, and `feat!:` or `BREAKING CHANGE:` is major. Other commit types, including `docs` and `chore`, produce a patch release.
 
-For a manual release, run **Actions → Publish to npm → Run workflow** from `main` and enter a new stable `X.Y.Z` version without a `v` prefix. The workflow updates `package.json` and `package-lock.json`, runs tests and lint, pushes the version commit and tag, publishes through npm Trusted Publishing, and creates a GitHub release.
+The source `package.json` may retain its development version. The release runner sets the calculated version only in the npm artifact; its `vX.Y.Z` tag and GitHub release refer to the same source commit and version.
 
-Configure npm **Trusted Publisher** for GitHub Actions with user `eduardez`, repository `n8n-nodes-netbox-connector`, and workflow filename `publish.yml`. Leave **Environment name** blank unless a matching GitHub environment is configured, and enable direct `npm publish` in **Allowed actions**. The workflow uses Node 22.14+ and npm 11.5.1+; no `NPM_TOKEN` is needed. A new trusted-publisher configuration must complete its first successful publish within two days.
+For recovery after a failed automatic publish, dispatch **Actions → Publish → Run workflow** from `main` with the exact version of the existing `vX.Y.Z` tag. The workflow builds that tag's commit, requires it to be an ancestor of `main`, and skips an existing npm version only when its registry `gitHead` matches. With no existing tag, a manual version must exceed both the highest stable git tag and npm `latest`. The workflow never commits or pushes a version change to `main`.
+
+Configure the npm **Trusted Publisher** for owner `eduardez`, repository `n8n-nodes-netbox-connector`, and workflow filename `publish.yml` only. Leave the environment blank and allow direct `npm publish`; the workflow uses Node 22 and npm 11.19.0 with OIDC, not an npm token.
 
 ## Live integration tests
 
@@ -103,7 +109,4 @@ The integration harness executes the compiled node with an HTTP adapter; it does
 
 NetBox is a registered trademark of NetBox Labs. The network-symbol artwork is derived from the official NetBox logo at <https://github.com/netbox-community/netbox/blob/v4.7.3/netbox/project-static/img/logo_netbox_bright_teal.svg> and is used here as the symbol portion only. The full source logo is copyrighted by its respective owner.
 
-## Repository and contributions
-
-Source: [n8n-nodes-netbox-connector](https://github.com/eduardez/n8n-nodes-netbox-connector). Report bugs or request features in [GitHub Issues](https://github.com/eduardez/n8n-nodes-netbox-connector/issues). Contributions are welcome—feel free to contribute!
 

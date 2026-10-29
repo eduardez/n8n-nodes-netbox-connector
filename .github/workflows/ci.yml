@@ -2,8 +2,33 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      run_integration:
+        description: Run integration tests against a disposable NetBox instance
+        required: false
+        default: false
+        type: boolean
+      confirm_disposable:
+        description: Confirm NETBOX_BASE_URL points to a disposable NetBox instance
+        required: true
+        default: false
+        type: boolean
+      allow_writes:
+        description: Enable the create-and-delete tag scenario on that instance
+        required: false
+        default: false
+        type: boolean
+      token_type:
+        description: NetBox API token version
+        required: true
+        default: v2
+        type: choice
+        options:
+          - v2
+          - v1
 
 permissions:
   contents: read
@@ -27,3 +52,22 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm pack --dry-run
+
+  netbox:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_integration == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:integration
+        env:
+          NETBOX_INTEGRATION_DISPOSABLE: ${{ inputs.confirm_disposable && '1' || '0' }}
+          NETBOX_INTEGRATION_ALLOW_WRITES: ${{ inputs.allow_writes && '1' || '0' }}
+          NETBOX_BASE_URL: ${{ secrets.NETBOX_BASE_URL }}
+          NETBOX_API_TOKEN: ${{ secrets.NETBOX_API_TOKEN }}
+          NETBOX_TOKEN_TYPE: ${{ inputs.token_type }}
+          NETBOX_TEST_PREFIX_ID: ${{ secrets.NETBOX_TEST_PREFIX_ID }}
