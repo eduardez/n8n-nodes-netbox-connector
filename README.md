@@ -76,7 +76,7 @@ The **Integration** workflow is manually dispatched against a disposable NetBox 
 
 Pushing a tag matching `v<package-version>` (for example, `v0.1.2`) runs the npm **Publish** workflow. It validates the tag, publishes through npm Trusted Publishing, and creates a GitHub release.
 
-For a manual release, run **Actions → Publish to npm → Run workflow** from `main` and enter a new stable `X.Y.Z` version without a `v` prefix. The workflow updates `package.json` and `package-lock.json`, runs tests and lint, publishes, pushes the version tag, and creates a GitHub release.
+For a manual release, run **Actions → Publish to npm → Run workflow** from `main` and enter a new stable `X.Y.Z` version without a `v` prefix. The workflow updates `package.json` and `package-lock.json`, runs tests and lint, pushes the version commit and tag, publishes through npm Trusted Publishing, and creates a GitHub release.
 
 Configure npm **Trusted Publisher** for GitHub Actions with user `eduardez`, repository `n8n-nodes-netbox-connector`, and workflow filename `publish.yml`. Leave **Environment name** blank unless a matching GitHub environment is configured, and enable direct `npm publish` in **Allowed actions**. The workflow uses Node 22.14+ and npm 11.5.1+; no `NPM_TOKEN` is needed. A new trusted-publisher configuration must complete its first successful publish within two days.
 
